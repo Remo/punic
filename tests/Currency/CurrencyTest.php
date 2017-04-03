@@ -23,12 +23,13 @@ class CurrencyTest extends PHPUnit_Framework_TestCase
             array('en', 'USD', null, 'US Dollar', '$', '$', ''),
             array('it', 'USD', null, 'dollaro statunitense', 'US$', '$', ''),
             array('en', 'Invalid currency code', null, '', '', '', ''),
-            array('de', 'RUB', null, 'Russischer Rubel', 'RUB', 'RUB', '₽'),
+            array('de', 'ARS', null, 'Argentinischer Peso', 'ARS', '$', ''),
             array('en', 'USD', 0, 'US dollars', '$', '$', ''),
             array('en', 'USD', 1, 'US dollar', '$', '$', ''),
             array('en', 'USD', 2, 'US dollars', '$', '$', ''),
         );
     }
+
     /**
      * @dataProvider providerGetInfo
      */
@@ -49,6 +50,7 @@ class CurrencyTest extends PHPUnit_Framework_TestCase
             array('Invalid territory code', ''),
         );
     }
+
     /**
      * @dataProvider providerGetCurrencyForTerritory
      */

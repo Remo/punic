@@ -24,12 +24,12 @@ class Calendar
      * Convert a date/time representation to a {@link http://php.net/manual/class.datetime.php \DateTime} instance.
      *
      * @param number|\DateTime|string $value An Unix timestamp, a `\DateTime` instance \DateTime or a string accepted by {@link http://php.net/manual/function.strtotime.php strtotime}.
-     * @param string|\DateTimeZone $toTimezone The timezone to set; leave empty to use the value of $fromTimezone (if it's empty we'll use the default timezone or the timezone associated to $value if it's already a `\DateTime`).
-     * @param string|\DateTimeZone $fromTimezone The original timezone of $value; leave empty to use the default timezone (or the timezone associated to $value if it's already a `\DateTime`).
+     * @param string|\DateTimeZone $toTimezone the timezone to set; leave empty to use the value of $fromTimezone (if it's empty we'll use the default timezone or the timezone associated to $value if it's already a `\DateTime`)
+     * @param string|\DateTimeZone $fromTimezone the original timezone of $value; leave empty to use the default timezone (or the timezone associated to $value if it's already a `\DateTime`)
      *
-     * @return \DateTime|null Returns null if $value is empty, a `\DateTime` instance otherwise.
+     * @return \DateTime|null returns null if $value is empty, a `\DateTime` instance otherwise
      *
-     * @throws \Punic\Exception\BadArgumentType Throws an exception if $value is not empty and can't be converted to a `\DateTime` instance or if $toTimezone is not empty and is not valid.
+     * @throws \Punic\Exception\BadArgumentType throws an exception if $value is not empty and can't be converted to a `\DateTime` instance or if $toTimezone is not empty and is not valid
      *
      * @example Convert a Unix timestamp to a \DateTime instance with the current time zone:
      * ```php
@@ -138,9 +138,9 @@ class Calendar
      * - 'PPPPPPPPPPPP': RFC 2822 formatted date (Example: 'Thu, 21 Dec 2000 16:01:07 +0200')
      * - 'PPPPPPPPPPPPP': Seconds since the Unix Epoch (January 1 1970 00:00:00 GMT).
      *
-     * @param string $format The PHP date/time format string to convert.
+     * @param string $format the PHP date/time format string to convert
      *
-     * @return string Returns the ISO date/time format corresponding to the specified PHP date/time format.
+     * @return string returns the ISO date/time format corresponding to the specified PHP date/time format
      */
     public static function convertPhpToIsoFormat($format)
     {
@@ -165,6 +165,7 @@ class Calendar
             'Y' => 'yyyy',
             'y' => 'yy',
             'a' => 'PPPPPPP',
+            'b' => 'PPPPPPP',
             'A' => 'a',
             'B' => 'PPPPPPPP',
             'g' => 'h',
@@ -231,17 +232,291 @@ class Calendar
     }
 
     /**
+     * Try to convert a date, time or date/time {@link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table ISO format string} to a {@link http://php.net/manual/en/function.date.php#refsect1-function.date-parameters PHP date/time format}.
+     *
+     * @param string $isoDateTimeFormat The PHP date/time format
+     *
+     * @return string|null if the format is not possible (the ISO placeholders are much more than the PHP ones), null will be returned
+     */
+    public static function tryConvertIsoToPhpFormat($isoDateTimeFormat)
+    {
+        $result = null;
+        if (is_string($isoDateTimeFormat)) {
+            $result = '';
+            if (isset($isoDateTimeFormat[0])) {
+                $tokens = self::tokenizeFormat($isoDateTimeFormat);
+                foreach ($tokens as $token) {
+                    $chunk = null;
+                    if (is_string($token)) {
+                        $chunk = preg_replace('/([a-zA-Z\\\\])/', '\\\\\\1', $token);
+                    } else {
+                        switch ($token[0]) {
+                            case 'decodeYear':
+                                switch ($token[1]) {
+                                    case 2:
+                                        $chunk .= 'y';
+                                        break;
+                                    default:
+                                        $chunk .= 'Y';
+                                        break;
+                                }
+                                break;
+                            case 'decodeYearWeekOfYear':
+                                $chunk = 'o';
+                                break;
+                            case 'decodeYearExtended':
+                            case 'decodeYearRelatedGregorian':
+                                $chunk = 'Y';
+                                break;
+                            case 'decodeMonth':
+                            case 'decodeMonthAlone':
+                                switch ($token[1]) {
+                                    case 1:
+                                        $chunk = 'n';
+                                        break;
+                                    case 2:
+                                        $chunk = 'm';
+                                        break;
+                                    case 3:
+                                        $chunk = 'M';
+                                        break;
+                                    case 4:
+                                        $chunk = 'F';
+                                        break;
+                                }
+                                break;
+                            case 'decodeWeekOfYear':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 2:
+                                        $chunk = 'W';
+                                        break;
+                                }
+                                break;
+                            case 'decodeDayOfMonth':
+                                switch ($token[1]) {
+                                    case 1:
+                                        $chunk = 'j';
+                                        break;
+                                    case 2:
+                                        $chunk = 'd';
+                                        break;
+                                }
+                                break;
+                            case 'decodeDayOfYear':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 2:
+                                    case 3:
+                                        $chunk = 'z';
+                                        break;
+                                }
+                                break;
+                            case 'decodeDayOfWeek':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 2:
+                                    case 3:
+                                        $chunk = 'D';
+                                        break;
+                                    case 4:
+                                        $chunk = 'l';
+                                        break;
+                                }
+                                break;
+                            case 'decodeDayOfWeekLocal':
+                            case 'decodeDayOfWeekLocalAlone':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 2:
+                                        $chunk = 'N';
+                                        break;
+                                    case 3:
+                                        $chunk = 'D';
+                                        break;
+                                    case 4:
+                                        $chunk = 'l';
+                                        break;
+                                }
+                                break;
+                            case 'decodeDayperiod':
+                                if ($token[1] <= 4) {
+                                    $chunk = 'A';
+                                }
+                                break;
+                            case 'decodeHour12':
+                                switch ($token[1]) {
+                                    case 1:
+                                        $chunk = 'g';
+                                        break;
+                                    case 2:
+                                        $chunk = 'h';
+                                        break;
+                                }
+                                break;
+                            case 'decodeHour24':
+                                switch ($token[1]) {
+                                    case 1:
+                                        $chunk = 'G';
+                                        break;
+                                    case 2:
+                                        $chunk = 'H';
+                                        break;
+                                }
+                                break;
+                            case 'decodeMinute':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 2:
+                                        $chunk = 'i';
+                                        break;
+                                }
+                                break;
+                            case 'decodeSecond':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 2:
+                                        $chunk = 's';
+                                        break;
+                                }
+                                break;
+                            case 'decodeFranctionsOfSeconds':
+                                switch ($token[1]) {
+                                    case 3:
+                                        if (version_compare(PHP_VERSION, '7') >= 0) {
+                                            $chunk = 'v';
+                                        }
+                                        break;
+                                    case 6:
+                                        $chunk = 'u';
+                                        break;
+                                }
+                                break;
+                            case 'decodeTimezoneNoLocationSpecific':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 2:
+                                    case 3:
+                                        $chunk = 'T';
+                                        break;
+                                    case 4:
+                                        $chunk = '\\G\\M\\TP';
+                                        break;
+                                }
+                                break;
+                            case 'decodeTimezoneDelta':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 2:
+                                    case 3:
+                                        $chunk = 'O';
+                                        break;
+                                    case 4:
+                                        $chunk = '\\G\\M\\TP';
+                                        break;
+                                    case 5:
+                                        $chunk = 'P';
+                                        break;
+                                }
+                                break;
+                            case 'decodeTimezoneShortGMT':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 4:
+                                        $chunk = '\\G\\M\\TP';
+                                        break;
+                                }
+                                break;
+                            case 'decodeTimezoneID':
+                                switch ($token[1]) {
+                                    case 2:
+                                        $chunk = 'e';
+                                        break;
+                                }
+                                break;
+                            case 'decodeTimezoneWithTimeZ':
+                            case 'decodeTimezoneWithTime':
+                                switch ($token[1]) {
+                                    case 1:
+                                    case 2:
+                                    case 4:
+                                        $chunk = 'O';
+                                        break;
+                                    case 3:
+                                    case 5:
+                                        $chunk = 'P';
+                                        break;
+                                }
+                                break;
+                            case 'decodePunicExtension':
+                                switch ($token[1]) {
+                                    case 1:
+                                        $chunk = 'N';
+                                        break;
+                                    case 2:
+                                        $chunk = 'w';
+                                        break;
+                                    case 3:
+                                        $chunk = 'S';
+                                        break;
+                                    case 4:
+                                        $chunk = 'z';
+                                        break;
+                                    case 5:
+                                        $chunk = 't';
+                                        break;
+                                    case 6:
+                                        $chunk = 'L';
+                                        break;
+                                    case 7:
+                                        $chunk = 'a';
+                                        break;
+                                    case 8:
+                                        $chunk = 'B';
+                                        break;
+                                    case 9:
+                                        $chunk = 'u';
+                                        break;
+                                    case 10:
+                                        $chunk = 'I';
+                                        break;
+                                    case 11:
+                                        $chunk = 'Z';
+                                        break;
+                                    case 12:
+                                        $chunk = 'r';
+                                        break;
+                                    case 13:
+                                        $chunk = 'U';
+                                        break;
+                                }
+                                break;
+                        }
+                    }
+                    if ($chunk === null) {
+                        $result = null;
+                        break;
+                    }
+                    $result .= $chunk;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Get the name of an era.
      *
-     * @param number|\DateTime $value The year number or the \DateTime instance for which you want the name of the era.
-     * @param string $width The format name; it can be 'wide' (eg 'Before Christ'), 'abbreviated' (eg 'BC') or 'narrow' (eg 'B').
+     * @param number|\DateTime $value the year number or the \DateTime instance for which you want the name of the era
+     * @param string $width the format name; it can be 'wide' (eg 'Before Christ'), 'abbreviated' (eg 'BC') or 'narrow' (eg 'B')
      * @param string $locale The locale to use. If empty we'll use the default locale set with {@link \Punic\Data::setDefaultLocale()}.
      *
-     * @return string Returns an empty string if $value is empty, the name of the era otherwise.
+     * @return string returns an empty string if $value is empty, the name of the era otherwise
      *
-     * @throws \Punic\Exception\BadArgumentType Throws a BadArgumentType exception if $value is not valid.
-     * @throws \Punic\Exception\ValueNotInList Throws a ValueNotInList exception if $width is not valid.
-     * @throws \Punic\Exception Throws a generic exception in case of other problems (for instance if you specify an invalid locale).
+     * @throws \Punic\Exception\BadArgumentType throws a BadArgumentType exception if $value is not valid
+     * @throws \Punic\Exception\ValueNotInList throws a ValueNotInList exception if $width is not valid
+     * @throws \Punic\Exception throws a generic exception in case of other problems (for instance if you specify an invalid locale)
      */
     public static function getEraName($value, $width = 'abbreviated', $locale = '')
     {
@@ -276,16 +551,16 @@ class Calendar
     /**
      * Get the name of a month.
      *
-     * @param number|\DateTime $value The month number (1-12) or a \DateTime instance for which you want the name of the month.
-     * @param string $width The format name; it can be 'wide' (eg 'January'), 'abbreviated' (eg 'Jan') or 'narrow' (eg 'J').
+     * @param number|\DateTime $value the month number (1-12) or a \DateTime instance for which you want the name of the month
+     * @param string $width the format name; it can be 'wide' (eg 'January'), 'abbreviated' (eg 'Jan') or 'narrow' (eg 'J')
      * @param string $locale The locale to use. If empty we'll use the default locale set with {@link \Punic\Data::setDefaultLocale()}.
-     * @param bool $standAlone Set to true to return the form used independently (such as in calendar header), set to false if the month name will be part of a date.
+     * @param bool $standAlone set to true to return the form used independently (such as in calendar header), set to false if the month name will be part of a date
      *
-     * @return string Returns an empty string if $value is empty, the name of the month otherwise.
+     * @return string returns an empty string if $value is empty, the name of the month otherwise
      *
-     * @throws \Punic\Exception\BadArgumentType Throws a BadArgumentType exception if $value is not valid.
-     * @throws \Punic\Exception\ValueNotInList Throws a ValueNotInList exception if $width is not valid.
-     * @throws \Punic\Exception Throws a generic exception in case of other problems (for instance if you specify an invalid locale).
+     * @throws \Punic\Exception\BadArgumentType throws a BadArgumentType exception if $value is not valid
+     * @throws \Punic\Exception\ValueNotInList throws a ValueNotInList exception if $width is not valid
+     * @throws \Punic\Exception throws a generic exception in case of other problems (for instance if you specify an invalid locale)
      */
     public static function getMonthName($value, $width = 'wide', $locale = '', $standAlone = false)
     {
@@ -320,16 +595,16 @@ class Calendar
     /**
      * Get the name of a week day.
      *
-     * @param number|\DateTime $value A week day number (from 0-Sunday to 6-Saturnday) or a \DateTime instance for which you want the name of the day of the week.
-     * @param string $width The format name; it can be 'wide' (eg 'Sunday'), 'abbreviated' (eg 'Sun'), 'short' (eg 'Su') or 'narrow' (eg 'S').
+     * @param number|\DateTime $value a week day number (from 0-Sunday to 6-Saturnday) or a \DateTime instance for which you want the name of the day of the week
+     * @param string $width the format name; it can be 'wide' (eg 'Sunday'), 'abbreviated' (eg 'Sun'), 'short' (eg 'Su') or 'narrow' (eg 'S')
      * @param string $locale The locale to use. If empty we'll use the default locale set with {@link \Punic\Data::setDefaultLocale()}.
-     * @param bool $standAlone Set to true to return the form used independently (such as in calendar header), set to false if the week day name will be part of a date.
+     * @param bool $standAlone set to true to return the form used independently (such as in calendar header), set to false if the week day name will be part of a date
      *
-     * @return string Returns an empty string if $value is empty, the name of the week day name otherwise.
+     * @return string returns an empty string if $value is empty, the name of the week day name otherwise
      *
-     * @throws \Punic\Exception\BadArgumentType Throws a BadArgumentType exception if $value is not valid.
-     * @throws \Punic\Exception\ValueNotInList Throws a ValueNotInList exception if $width is not valid.
-     * @throws \Punic\Exception Throws a generic exception in case of other problems (for instance if you specify an invalid locale).
+     * @throws \Punic\Exception\BadArgumentType throws a BadArgumentType exception if $value is not valid
+     * @throws \Punic\Exception\ValueNotInList throws a ValueNotInList exception if $width is not valid
+     * @throws \Punic\Exception throws a generic exception in case of other problems (for instance if you specify an invalid locale)
      */
     public static function getWeekdayName($value, $width = 'wide', $locale = '', $standAlone = false)
     {
@@ -365,16 +640,16 @@ class Calendar
     /**
      * Get the name of a quarter.
      *
-     * @param number|\DateTime $value A quarter number (from 1 to 4) or a \DateTime instance for which you want the name of the day of the quarter.
-     * @param string $width The format name; it can be 'wide' (eg '1st quarter'), 'abbreviated' (eg 'Q1') or 'narrow' (eg '1').
+     * @param number|\DateTime $value a quarter number (from 1 to 4) or a \DateTime instance for which you want the name of the day of the quarter
+     * @param string $width the format name; it can be 'wide' (eg '1st quarter'), 'abbreviated' (eg 'Q1') or 'narrow' (eg '1')
      * @param string $locale The locale to use. If empty we'll use the default locale set with {@link \Punic\Data::setDefaultLocale()}.
-     * @param bool $standAlone Set to true to return the form used independently (such as in calendar header), set to false if the quarter name will be part of a date.
+     * @param bool $standAlone set to true to return the form used independently (such as in calendar header), set to false if the quarter name will be part of a date
      *
-     * @return string Returns an empty string if $value is empty, the name of the quarter name otherwise.
+     * @return string returns an empty string if $value is empty, the name of the quarter name otherwise
      *
-     * @throws \Punic\Exception\BadArgumentType Throws a BadArgumentType exception if $value is not valid.
-     * @throws \Punic\Exception\ValueNotInList Throws a ValueNotInList exception if $width is not valid.
-     * @throws \Punic\Exception Throws a generic exception in case of other problems (for instance if you specify an invalid locale).
+     * @throws \Punic\Exception\BadArgumentType throws a BadArgumentType exception if $value is not valid
+     * @throws \Punic\Exception\ValueNotInList throws a ValueNotInList exception if $width is not valid
+     * @throws \Punic\Exception throws a generic exception in case of other problems (for instance if you specify an invalid locale)
      */
     public static function getQuarterName($value, $width = 'wide', $locale = '', $standAlone = false)
     {
@@ -409,16 +684,16 @@ class Calendar
     /**
      * Get the name of a day period (AM/PM).
      *
-     * @param number|string|\DateTime $value An hour (from 0 to 23), a standard period name ('am' or 'pm', lower or upper case) a \DateTime instance for which you want the name of the day period.
-     * @param string $width The format name; it can be 'wide' (eg 'AM'), 'abbreviated' (eg 'AM') or 'narrow' (eg 'a').
+     * @param number|string|\DateTime $value an hour (from 0 to 23), a standard period name ('am' or 'pm', lower or upper case) a \DateTime instance for which you want the name of the day period
+     * @param string $width the format name; it can be 'wide' (eg 'AM'), 'abbreviated' (eg 'AM') or 'narrow' (eg 'a')
      * @param string $locale The locale to use. If empty we'll use the default locale set with {@link \Punic\Data::setDefaultLocale()}.
-     * @param bool $standAlone Set to true to return the form used independently (such as in calendar header), set to false if the day period name will be part of a date.
+     * @param bool $standAlone set to true to return the form used independently (such as in calendar header), set to false if the day period name will be part of a date
      *
-     * @return string Returns an empty string if $value is empty, the name of the day period name otherwise.
+     * @return string returns an empty string if $value is empty, the name of the day period name otherwise
      *
-     * @throws \Punic\Exception\BadArgumentType Throws a BadArgumentType exception if $value is not valid.
-     * @throws \Punic\Exception\ValueNotInList Throws a ValueNotInList exception if $width is not valid.
-     * @throws \Punic\Exception Throws a generic exception in case of other problems (for instance if you specify an invalid locale).
+     * @throws \Punic\Exception\BadArgumentType throws a BadArgumentType exception if $value is not valid
+     * @throws \Punic\Exception\ValueNotInList throws a ValueNotInList exception if $width is not valid
+     * @throws \Punic\Exception throws a generic exception in case of other problems (for instance if you specify an invalid locale)
      */
     public static function getDayperiodName($value, $width = 'wide', $locale = '', $standAlone = false)
     {
@@ -463,14 +738,14 @@ class Calendar
     /**
      * Returns the localized name of a timezone, no location-specific.
      *
-     * @param string|\DateTime|\DateTimeZone $value The php name of a timezone, or a \DateTime instance or a \DateTimeZone instance for which you want the localized timezone name.
-     * @param string $width The format name; it can be 'long' (eg 'Greenwich Mean Time') or 'short' (eg 'GMT').
-     * @param string $kind Set to 'daylight' to retrieve the daylight saving time name, set to 'standard' to retrieve the standard time, set to 'generic' to retrieve the generic name, set to '' to determine automatically the dst (if $value is \DateTime) or the generic (otherwise).
+     * @param string|\DateTime|\DateTimeZone $value the php name of a timezone, or a \DateTime instance or a \DateTimeZone instance for which you want the localized timezone name
+     * @param string $width the format name; it can be 'long' (eg 'Greenwich Mean Time') or 'short' (eg 'GMT')
+     * @param string $kind set to 'daylight' to retrieve the daylight saving time name, set to 'standard' to retrieve the standard time, set to 'generic' to retrieve the generic name, set to '' to determine automatically the dst (if $value is \DateTime) or the generic (otherwise)
      * @param string $locale The locale to use. If empty we'll use the default locale set with {@link \Punic\Data::setDefaultLocale()}.
      *
-     * @return string Returns an empty string if the timezone has not been found (maybe we don't have the data in the specified $width), the timezone name otherwise.
+     * @return string returns an empty string if the timezone has not been found (maybe we don't have the data in the specified $width), the timezone name otherwise
      *
-     * @throws \Punic\Exception Throws a generic exception in case of problems (for instance if you specify an invalid locale).
+     * @throws \Punic\Exception throws a generic exception in case of problems (for instance if you specify an invalid locale)
      */
     public static function getTimezoneNameNoLocationSpecific($value, $width = 'long', $kind = '', $locale = '')
     {
@@ -734,9 +1009,9 @@ class Calendar
      *
      * @throws Exception Throws an exception in case of problems
      *
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function getDateFormat($width, $locale = '')
     {
@@ -759,9 +1034,9 @@ class Calendar
      *
      * @throws \Punic\Exception Throws an exception in case of problems
      *
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function getTimeFormat($width, $locale = '')
     {
@@ -784,9 +1059,9 @@ class Calendar
      *
      * @throws \Punic\Exception Throws an exception in case of problems
      *
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function getDatetimeFormat($width, $locale = '')
     {
@@ -977,9 +1252,9 @@ class Calendar
      *
      * @throws \Punic\Exception Throws an exception in case of problems
      *
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function formatDate($value, $width, $locale = '')
     {
@@ -1013,9 +1288,9 @@ class Calendar
      * @throws \Punic\Exception Throws an exception in case of problems
      *
      * @see toDateTime()
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function formatDateEx($value, $width, $toTimezone = '', $locale = '')
     {
@@ -1037,9 +1312,9 @@ class Calendar
      *
      * @throws \Punic\Exception Throws an exception in case of problems
      *
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function formatTime($value, $width, $locale = '')
     {
@@ -1063,9 +1338,9 @@ class Calendar
      * @throws \Punic\Exception Throws an exception in case of problems
      *
      * @see toDateTime()
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function formatTimeEx($value, $width, $toTimezone = '', $locale = '')
     {
@@ -1088,9 +1363,9 @@ class Calendar
      *
      * @throws \Punic\Exception Throws an exception in case of problems
      *
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function formatDatetime($value, $width, $locale = '')
     {
@@ -1137,9 +1412,9 @@ class Calendar
      * @throws \Punic\Exception Throws an exception in case of problems
      *
      * @see toDateTime()
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function formatDatetimeEx($value, $width, $toTimezone = '', $locale = '')
     {
@@ -1174,99 +1449,23 @@ class Calendar
      *
      * @throws \Punic\Exception Throws an exception in case of problems
      *
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function format($value, $format, $locale = '')
     {
-        static $decodeCache = array();
-        static $decoderFunctions = array(
-            'G' => 'decodeEra',
-            'y' => 'decodeYear',
-            'Y' => 'decodeYearWeekOfYear',
-            'u' => 'decodeYearExtended',
-            'U' => 'decodeYearCyclicName',
-            'r' => 'decodeYearRelatedGregorian',
-            'Q' => 'decodeQuarter',
-            'q' => 'decodeQuarterAlone',
-            'M' => 'decodeMonth',
-            'L' => 'decodeMonthAlone',
-            'w' => 'decodeWeekOfYear',
-            'W' => 'decodeWeekOfMonth',
-            'd' => 'decodeDayOfMonth',
-            'D' => 'decodeDayOfYear',
-            'F' => 'decodeWeekdayInMonth',
-            'g' => 'decodeModifiedGiulianDay',
-            'E' => 'decodeDayOfWeek',
-            'e' => 'decodeDayOfWeekLocal',
-            'c' => 'decodeDayOfWeekLocalAlone',
-            'a' => 'decodeDayperiod',
-            'h' => 'decodeHour12',
-            'H' => 'decodeHour24',
-            'K' => 'decodeHour12From0',
-            'k' => 'decodeHour24From1',
-            'm' => 'decodeMinute',
-            's' => 'decodeSecond',
-            'S' => 'decodeFranctionsOfSeconds',
-            'A' => 'decodeMsecInDay',
-            'z' => 'decodeTimezoneNoLocationSpecific',
-            'Z' => 'decodeTimezoneDelta',
-            'O' => 'decodeTimezoneShortGMT',
-            'v' => 'decodeTimezoneNoLocationGeneric',
-            'V' => 'decodeTimezoneID',
-            'X' => 'decodeTimezoneWithTimeZ',
-            'x' => 'decodeTimezoneWithTime',
-            'P' => 'decodePunicExtension',
-        );
         $result = '';
         if (!empty($value)) {
             if (!is_a($value, '\\DateTime')) {
                 throw new Exception\BadArgumentType($value, '\\DateTime');
             }
-            $length = is_string($format) ? strlen($format) : 0;
-            if ($length === 0) {
+            if (!is_string($format) || $format === '') {
                 throw new Exception\BadArgumentType($format, 'date/time ISO format');
             }
+            $decoder = self::tokenizeFormat($format);
             if (empty($locale)) {
                 $locale = Data::getDefaultLocale();
-            }
-            if (!isset($decodeCache[$locale])) {
-                $decodeCache[$locale] = array();
-            }
-            if (!isset($decodeCache[$locale][$format])) {
-                $decoder = array();
-                $lengthM1 = $length - 1;
-                $quoted = false;
-                for ($index = 0; $index < $length; ++$index) {
-                    $char = $format[$index];
-                    if ($char === "'") {
-                        if ($quoted) {
-                            $quoted = false;
-                        } elseif (($index < $lengthM1) && ($format[$index + 1] === "'")) {
-                            $decoder[] = "'";
-                            ++$index;
-                        } else {
-                            $quoted = true;
-                        }
-                    } elseif ($quoted) {
-                        $decoder[] = $char;
-                    } else {
-                        $count = 1;
-                        for ($j = $index + 1; ($j < $length) && ($format[$j] === $char); ++$j) {
-                            ++$count;
-                            ++$index;
-                        }
-                        if (isset($decoderFunctions[$char])) {
-                            $decoder[] = array($decoderFunctions[$char], $count);
-                        } else {
-                            $decoder[] = str_repeat($char, $count);
-                        }
-                    }
-                }
-                $decodeCache[$locale][$format] = $decoder;
-            } else {
-                $decoder = $decodeCache[$locale][$format];
             }
             foreach ($decoder as $chunk) {
                 if (is_string($chunk)) {
@@ -1281,6 +1480,7 @@ class Calendar
 
         return $result;
     }
+
     /**
      * Format a date and/or time (extended version: various date/time representations - see toDateTime()).
      *
@@ -1306,9 +1506,9 @@ class Calendar
      *
      * @throws \Punic\Exception Throws an exception in case of problems
      *
-     * @link http://cldr.unicode.org/translation/date-time-patterns
-     * @link http://cldr.unicode.org/translation/date-time
-     * @link http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
+     * @see http://cldr.unicode.org/translation/date-time-patterns
+     * @see http://cldr.unicode.org/translation/date-time
+     * @see http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
      */
     public static function formatEx($value, $format, $toTimezone = '', $locale = '')
     {
@@ -1835,11 +2035,13 @@ class Calendar
     {
         throw new Exception\NotImplemented(__METHOD__);
     }
+
     /** @todo */
     protected static function decodeYearCyclicName()
     {
         throw new Exception\NotImplemented(__METHOD__);
     }
+
     /** @todo */
     protected static function decodeModifiedGiulianDay()
     {
@@ -1963,6 +2165,95 @@ class Calendar
             }
         } else {
             $result = $tz->getName();
+        }
+
+        return $result;
+    }
+
+    protected static $decoderFunctions = array(
+        'G' => 'decodeEra',
+        'y' => 'decodeYear',
+        'Y' => 'decodeYearWeekOfYear',
+        'u' => 'decodeYearExtended',
+        'U' => 'decodeYearCyclicName',
+        'r' => 'decodeYearRelatedGregorian',
+        'Q' => 'decodeQuarter',
+        'q' => 'decodeQuarterAlone',
+        'M' => 'decodeMonth',
+        'L' => 'decodeMonthAlone',
+        'w' => 'decodeWeekOfYear',
+        'W' => 'decodeWeekOfMonth',
+        'd' => 'decodeDayOfMonth',
+        'D' => 'decodeDayOfYear',
+        'F' => 'decodeWeekdayInMonth',
+        'g' => 'decodeModifiedGiulianDay',
+        'E' => 'decodeDayOfWeek',
+        'e' => 'decodeDayOfWeekLocal',
+        'c' => 'decodeDayOfWeekLocalAlone',
+        'a' => 'decodeDayperiod',
+        'b' => 'decodeDayperiod',
+        'B' => 'decodeDayperiod',
+        'h' => 'decodeHour12',
+        'H' => 'decodeHour24',
+        'K' => 'decodeHour12From0',
+        'k' => 'decodeHour24From1',
+        'm' => 'decodeMinute',
+        's' => 'decodeSecond',
+        'S' => 'decodeFranctionsOfSeconds',
+        'A' => 'decodeMsecInDay',
+        'z' => 'decodeTimezoneNoLocationSpecific',
+        'Z' => 'decodeTimezoneDelta',
+        'O' => 'decodeTimezoneShortGMT',
+        'v' => 'decodeTimezoneNoLocationGeneric',
+        'V' => 'decodeTimezoneID',
+        'X' => 'decodeTimezoneWithTimeZ',
+        'x' => 'decodeTimezoneWithTime',
+        'P' => 'decodePunicExtension',
+    );
+
+    private static $tokenizerCache = array();
+
+    /**
+     * Tokenize an ISO date/time format string.
+     *
+     * @param string $format
+     *
+     * @return array
+     */
+    protected static function tokenizeFormat($format)
+    {
+        if (isset(self::$tokenizerCache[$format])) {
+            $result = self::$tokenizerCache[$format];
+        } else {
+            $result = array();
+            $length = strlen($format);
+            $lengthM1 = $length - 1;
+            $quoted = false;
+            for ($index = 0; $index < $length; ++$index) {
+                $char = $format[$index];
+                if ($char === "'") {
+                    if (($index < $lengthM1) && ($format[$index + 1] === "'")) {
+                        $result[] = "'";
+                        ++$index;
+                    } else {
+                        $quoted = !$quoted;
+                    }
+                } elseif ($quoted) {
+                    $result[] = $char;
+                } else {
+                    $count = 1;
+                    for ($j = $index + 1; ($j < $length) && ($format[$j] === $char); ++$j) {
+                        ++$count;
+                        ++$index;
+                    }
+                    if (isset(self::$decoderFunctions[$char])) {
+                        $result[] = array(self::$decoderFunctions[$char], $count);
+                    } else {
+                        $result[] = str_repeat($char, $count);
+                    }
+                }
+            }
+            self::$tokenizerCache[$format] = $result;
         }
 
         return $result;
